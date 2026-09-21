@@ -20,3 +20,6 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# ZCode 工作区元数据
+.zcode/
