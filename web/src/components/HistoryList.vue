@@ -3,6 +3,10 @@ import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
+  // 引擎徽标映射：{ uapi: 'Uapi', baidu: '百度翻译', ... }
+  providerNames: { type: Object, default: () => ({}) },
+  // 语言代码 → 名称映射（合并所有引擎的语言表，兼容旧记录）
+  langNames: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['clear', 'copy'])
@@ -91,9 +95,8 @@ function formatTime(ts) {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function langName(code, list) {
-  const found = list.find((l) => l.code === code)
-  return found ? found.name : code
+function langName(code) {
+  return props.langNames[code] || code
 }
 
 watch(
@@ -133,9 +136,14 @@ onUnmounted(() => {
         <!-- 顶部元信息：语言 + 时间 + 复制按钮（固定在右上角，不受展开影响） -->
         <div class="item-meta">
           <span class="item-lang grad-text">
-            {{ langName(item.fromLang, item.langList) }} → {{ langName(item.toLang, item.langList) }}
+            {{ langName(item.fromLang) }} → {{ langName(item.toLang) }}
           </span>
           <div class="meta-right">
+            <span
+              v-if="item.provider && providerNames[item.provider]"
+              class="provider-badge"
+              :title="'由 ' + providerNames[item.provider] + ' 翻译'"
+            >{{ providerNames[item.provider] }}</span>
             <span class="item-time">{{ formatTime(item.time) }}</span>
             <button
               class="icon-btn copy-btn"
@@ -298,6 +306,15 @@ onUnmounted(() => {
   margin-right: 10px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+.provider-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c-blue);
+  background: rgba(37, 99, 235, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 /* 复制按钮：固定在 meta 行右侧，不受展开/折叠影响 */

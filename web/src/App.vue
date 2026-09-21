@@ -1,9 +1,9 @@
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
-import { LANGUAGES, AUTO_LANG } from './constants/languages.js'
-import ApiKeyModal from './components/ApiKeyModal.vue'
-import HistoryList from './components/HistoryList.vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { AUTO_LANG } from './constants/languages.js'
 import GradientSelect from './components/GradientSelect.vue'
+import SettingsModal from './components/SettingsModal.vue'
+import HistoryList from './components/HistoryList.vue'
 
 /* ---------------- 状态 ---------------- */
 const inputText = ref('')
@@ -13,15 +13,26 @@ const fromLang = ref('auto')
 const toLang = ref('en')
 const loading = ref(false)
 const errorMsg = ref('')
+// 非错误类轻提示（如切换引擎后语言自动回退），数秒后自动消失
+const noticeMsg = ref('')
+let noticeTimer = null
 
-// 后端 API Key 配置状态
-const apiKeyReady = ref(false)
-const showKeyModal = ref(false)
+// 后端下发的引擎摘要列表与当前选中引擎
+const providers = ref([])
+const PROVIDER_KEY = 'yichen_provider'
+const currentProviderId = ref(localStorage.getItem(PROVIDER_KEY) || 'uapi')
+const showSettings = ref(false)
 
 // 原文/译文滚动容器引用 + 同步锁（避免双向触发死循环）
 const inputScrollRef = ref(null)
 const resultScrollRef = ref(null)
 const syncingScroll = ref(false)
+
+function showNotice(text) {
+  noticeMsg.value = text
+  clearTimeout(noticeTimer)
+  noticeTimer = setTimeout(() => { noticeMsg.value = '' }, 4000)
+}
 
 function onInputScroll() {
   if (syncingScroll.value) return
@@ -47,24 +58,62 @@ function onResultScroll() {
   nextTick(() => { syncingScroll.value = false })
 }
 
-// 源语言下拉选项：自动检测 + 全部语言
-const fromLangOptions = [AUTO_LANG, ...LANGUAGES]
-
 // 历史记录（localStorage 持久化）
 const HISTORY_KEY = 'gradient_translate_history'
 const MAX_HISTORY = 50
 const history = ref([])
 
 /* ---------------- 计算 ---------------- */
+const currentProvider = computed(
+  () => providers.value.find((p) => p.id === currentProviderId.value) || null
+)
+// 源语言下拉选项：自动检测 + 当前引擎支持的源语言
+const fromLangOptions = computed(() => [
+  AUTO_LANG,
+  ...(currentProvider.value?.sourceLanguages || []),
+])
+const targetOptions = computed(() => currentProvider.value?.targetLanguages || [])
+// 字数上限随引擎变化（Uapi 3000 / 百度 6000 / DeepL 50000）
+const charLimit = computed(() => currentProvider.value?.maxChars ?? 3000)
+
 const charCount = computed(() => inputText.value.length)
 const canTranslate = computed(() => inputText.value.trim().length > 0 && !loading.value)
 // 源语言选 auto 时，后端不支持把 auto 当目标语言，交换时需处理
 const canSwap = computed(() => fromLang.value !== 'auto')
 
+// 历史徽标与语言名映射（合并所有引擎的语言表，兼容旧记录的任意引擎代码）
+const providerNames = computed(() =>
+  Object.fromEntries(providers.value.map((p) => [p.id, p.name]))
+)
+const langNames = computed(() => {
+  const map = { auto: AUTO_LANG.name }
+  for (const p of providers.value) {
+    for (const l of [...p.sourceLanguages, ...p.targetLanguages]) {
+      if (!map[l.code]) map[l.code] = l.name
+    }
+  }
+  return map
+})
+
 /* ---------------- 生命周期 ---------------- */
 onMounted(async () => {
   loadHistory()
-  await checkApiKey()
+  await loadProviders()
+})
+
+// 切换引擎：持久化选择；当前语言不被新引擎支持时自动回退并轻提示
+watch(currentProviderId, (id) => {
+  localStorage.setItem(PROVIDER_KEY, id)
+  const p = currentProvider.value
+  if (!p) return
+  if (!p.targetLanguages.some((l) => l.code === toLang.value)) {
+    toLang.value = p.defaultTarget
+    showNotice(`${p.name} 不支持当前目标语言，已切换为「${langNames.value[p.defaultTarget] || p.defaultTarget}」`)
+  }
+  if (fromLang.value !== 'auto' && !p.sourceLanguages.some((l) => l.code === fromLang.value)) {
+    fromLang.value = 'auto'
+    showNotice(`${p.name} 不支持当前源语言，已切换为自动检测`)
+  }
 })
 
 /* ---------------- 历史记录持久化 ---------------- */
@@ -99,13 +148,18 @@ function clearHistory() {
 }
 
 /* ---------------- 方法 ---------------- */
-async function checkApiKey() {
+async function loadProviders() {
   try {
     const resp = await fetch('/api/health')
     const data = await resp.json()
-    apiKeyReady.value = Boolean(data?.apiKeyConfigured)
+    providers.value = data?.providers || []
+    // localStorage 里的引擎已不存在时，优先回退到第一个已配置的引擎
+    if (providers.value.length && !providers.value.some((p) => p.id === currentProviderId.value)) {
+      const firstConfigured = providers.value.find((p) => p.configured)
+      currentProviderId.value = firstConfigured?.id || providers.value[0].id
+    }
   } catch {
-    apiKeyReady.value = false
+    providers.value = []
   }
 }
 
@@ -117,12 +171,16 @@ async function handleTranslate() {
     errorMsg.value = '请输入要翻译的文本'
     return
   }
-  if (inputText.value.length > 3000) {
-    errorMsg.value = '文本长度不能超过 3000 字符'
+  if (inputText.value.length > charLimit.value) {
+    errorMsg.value = `${currentProvider.value?.name || '当前引擎'} 单次翻译不能超过 ${charLimit.value} 字符`
     return
   }
-  if (!apiKeyReady.value) {
-    showKeyModal.value = true
+  if (!currentProvider.value) {
+    errorMsg.value = '翻译引擎加载中，请稍候重试'
+    return
+  }
+  if (!currentProvider.value.configured) {
+    showSettings.value = true
     return
   }
 
@@ -131,18 +189,23 @@ async function handleTranslate() {
     const resp = await fetch('/api/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: inputText.value, to_lang: toLang.value }),
+      body: JSON.stringify({
+        text: inputText.value,
+        to_lang: toLang.value,
+        from_lang: fromLang.value,
+        provider: currentProviderId.value,
+      }),
     })
     const data = await resp.json()
     if (!resp.ok) {
       if (resp.status === 401 || resp.status === 403) {
-        throw new Error('API Key 无效或无权限，请检查 Key 是否正确（' + (data?.error || '') + '）')
+        throw new Error('凭据无效或无权限，请检查当前引擎的凭据配置（' + (data?.error || '') + '）')
       }
       throw new Error(data?.error || '翻译失败（HTTP ' + resp.status + '）')
     }
     resultText.value = data.translate || ''
 
-    // 写入历史记录
+    // 写入历史记录（记录所用的引擎）
     if (resultText.value) {
       pushHistory({
         id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
@@ -151,7 +214,7 @@ async function handleTranslate() {
         result: resultText.value,
         fromLang: fromLang.value,
         toLang: toLang.value,
-        langList: LANGUAGES,
+        provider: data.provider || currentProviderId.value,
       })
     }
   } catch (err) {
@@ -192,9 +255,10 @@ function clearAll() {
   errorMsg.value = ''
 }
 
-function onKeySaved() {
-  showKeyModal.value = false
-  checkApiKey()
+function onSettingsSaved(providerId) {
+  // 保存即切换到刚配置的引擎
+  if (providerId) currentProviderId.value = providerId
+  loadProviders()
 }
 </script>
 
@@ -210,9 +274,13 @@ function onKeySaved() {
         </div>
       </div>
 
-      <button class="ghost-btn key-btn" @click="showKeyModal = true">
-        <span class="dot" :class="{ ok: apiKeyReady }"></span>
-        {{ apiKeyReady ? 'API Key 已配置' : '配置 API Key' }}
+      <button class="ghost-btn key-btn" @click="showSettings = true">
+        <span class="dot" :class="{ ok: currentProvider?.configured }"></span>
+        {{
+          currentProvider
+            ? `${currentProvider.name} · ${currentProvider.configured ? '已配置' : '未配置'}`
+            : '加载引擎…'
+        }}
       </button>
     </header>
 
@@ -249,7 +317,7 @@ function onKeySaved() {
           </label>
           <GradientSelect
             v-model="toLang"
-            :options="LANGUAGES"
+            :options="targetOptions"
             id="to-lang"
           />
         </div>
@@ -271,14 +339,14 @@ function onKeySaved() {
         <div class="pane glass-card">
           <div class="pane-head">
             <h2 class="pane-title">原文</h2>
-            <span class="counter" :class="{ over: charCount > 3000 }">{{ charCount }} / 3000</span>
+            <span class="counter" :class="{ over: charCount > charLimit }">{{ charCount }} / {{ charLimit }}</span>
           </div>
           <textarea
             ref="inputScrollRef"
             v-model="inputText"
             class="field pane-body input-area"
             placeholder="在此输入要翻译的文本…"
-            maxlength="3500"
+            :maxlength="charLimit + 500"
             @scroll="onInputScroll"
           ></textarea>
         </div>
@@ -301,6 +369,7 @@ function onKeySaved() {
             class="pane-body result-body"
             @scroll="onResultScroll"
           >
+            <p v-if="noticeMsg" class="notice-msg">{{ noticeMsg }}</p>
             <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
             <p v-else-if="loading" class="placeholder placeholder-loading">
               <span class="spinner"></span>
@@ -315,6 +384,8 @@ function onKeySaved() {
       <!-- 历史记录 -->
       <HistoryList
         :items="history"
+        :provider-names="providerNames"
+        :lang-names="langNames"
         @clear="clearHistory"
         @copy="copyText"
       />
@@ -322,13 +393,19 @@ function onKeySaved() {
 
     <!-- 底部 -->
     <footer class="app-footer">
-      <span>Powered by <a href="https://uapis.cn" target="_blank" rel="noopener">UapiPro</a></span>
+      <span>多引擎翻译 · Uapi / 百度翻译 / DeepL</span>
       <span class="sep">·</span>
-      <span>本地部署 · API Key 由后端安全保管</span>
+      <span>本地部署 · 凭据由后端安全保管</span>
     </footer>
 
-    <!-- API Key 配置弹窗 -->
-    <ApiKeyModal v-if="showKeyModal" @close="showKeyModal = false" @saved="onKeySaved" />
+    <!-- 翻译引擎设置弹窗 -->
+    <SettingsModal
+      v-if="showSettings"
+      :providers="providers"
+      :initial-provider="currentProviderId"
+      @close="showSettings = false"
+      @saved="onSettingsSaved"
+    />
   </div>
 </template>
 
@@ -558,6 +635,12 @@ function onKeySaved() {
   color: #ef4444;
   font-size: 14px;
   line-height: 1.7;
+}
+.notice-msg {
+  color: var(--c-blue);
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 6px;
 }
 .small {
   padding: 6px 14px;
