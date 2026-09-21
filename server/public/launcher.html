@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>译尘翻译 · 启动台</title>
+  <style>
+    :root { --p: #7C3AED; --b: #2563EB; --c: #06B6D4; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, #7C3AED 0%, #2563EB 50%, #06B6D4 100%);
+      color: #fff; padding: 20px;
+    }
+    .card {
+      width: 100%; max-width: 420px; padding: 32px; border-radius: 20px;
+      background: rgba(255,255,255,0.12); backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.25);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25); text-align: center;
+    }
+    .logo { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(124,58,237,.5); }
+    h1 { font-size: 22px; margin-bottom: 6px; }
+    .sub { opacity: .85; font-size: 13px; margin-bottom: 24px; }
+    .status {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
+      border-radius: 999px; font-size: 13px; margin-bottom: 24px;
+      background: rgba(255,255,255,.15);
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #fca5a5; }
+    .dot.ok { background: #6ee7b7; }
+    .btn {
+      display: block; width: 100%; padding: 14px; border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 600; cursor: pointer; color: #fff;
+      background: linear-gradient(135deg, var(--p), var(--b));
+      transition: transform .15s ease, box-shadow .15s ease;
+      box-shadow: 0 8px 20px rgba(37,99,235,.4);
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(37,99,235,.5); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .tip { margin-top: 18px; font-size: 12px; opacity: .8; line-height: 1.6; }
+    code { background: rgba(255,255,255,.18); padding: 1px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="/logo.svg" alt="logo" onerror="this.style.display='none'" />
+    <h1>译尘 · Yichen 翻译</h1>
+    <div class="sub">本地翻译服务启动台</div>
+
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">检测中…</span></div>
+
+    <button class="btn" id="openBtn" disabled onclick="window.location.href='/'">打开翻译网站</button>
+
+    <div class="tip">
+      服务未运行时，请在项目根目录双击 <code>启动.bat</code>。<br/>
+      本页仅在服务已启动后可正常访问。
+    </div>
+  </div>
+
+  <script>
+    async function check() {
+      try {
+        const r = await fetch('/api/health', { cache: 'no-store' })
+        const d = await r.json()
+        document.getElementById('dot').classList.add('ok')
+        document.getElementById('statusText').textContent = d.apiKeyConfigured
+          ? '服务运行中 · Key 已配置' : '服务运行中 · 待配置 Key'
+        document.getElementById('openBtn').disabled = false
+      } catch (e) {
+        document.getElementById('dot').classList.remove('ok')
+        document.getElementById('statusText').textContent = '服务未运行'
+      }
+    }
+    check()
+    setInterval(check, 5000)
+  </script>
+</body>
+</html>

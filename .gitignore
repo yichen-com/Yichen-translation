@@ -1,0 +1,22 @@
+# 依赖
+node_modules/
+server/node_modules/
+web/node_modules/
+
+# 构建产物
+web/dist/
+
+# 环境变量（含 API Key，切勿提交）
+.env
+server/.env
+*.local
+
+# 日志
+*.log
+npm-debug.log*
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

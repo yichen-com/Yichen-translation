@@ -1,0 +1,14 @@
+[Unit]
+Description=Yichen Translate Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/usershare/app/Yichen-translation/server
+ExecStart=/usr/local/bin/node index.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+{
+  "name": "personal-translate-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "个人翻译网站 - 渐变风 UI + Uapi 翻译接口",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix web",
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev --prefix server\" \"npm run dev --prefix web\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:web": "npm run dev --prefix web",
+    "build": "npm run build --prefix web",
+    "start": "npm run start --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

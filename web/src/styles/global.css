@@ -1,0 +1,219 @@
+/* ============================================================
+   渐变风 全局样式
+   - 主色：紫 #7C3AED / 蓝 #2563EB / 青 #06B6D4
+   - 背景：大角度线性渐变 + 径向光晕
+   - 噪点：SVG 内联，低不透明度
+   - 过渡：200-300ms
+   ============================================================ */
+
+:root {
+  /* 主色板 */
+  --c-violet: #7c3aed;
+  --c-blue: #2563eb;
+  --c-cyan: #06b6d4;
+  --c-pink: #d946ef;
+
+  /* 渐变 */
+  --grad-main: linear-gradient(135deg, #7c3aed 0%, #2563eb 45%, #06b6d4 100%);
+  --grad-soft: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(6, 182, 212, 0.12));
+  --grad-border: linear-gradient(135deg, rgba(124, 58, 237, 0.6), rgba(6, 182, 212, 0.6));
+
+  /* 文本 */
+  --text-strong: #0f172a;
+  --text-base: #1e293b;
+  --text-muted: #64748b;
+  --text-invert: #ffffff;
+
+  /* 卡片 */
+  --card-bg: rgba(255, 255, 255, 0.72);
+  --card-border: rgba(255, 255, 255, 0.6);
+  --card-shadow: 0 20px 50px -20px rgba(37, 99, 235, 0.35);
+
+  /* 圆角 / 动效 */
+  --radius-lg: 24px;
+  --radius-md: 14px;
+  --radius-sm: 8px;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur: 240ms;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  min-height: 100vh;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  color: var(--text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+
+  /* 大角度渐变背景 */
+  background: linear-gradient(135deg, #eef2ff 0%, #e0f2fe 50%, #ecfeff 100%);
+  background-attachment: fixed;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* 径向光晕：固定在背景层 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 20%, rgba(124, 58, 237, 0.28), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 15%, rgba(37, 99, 235, 0.25), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 75% 85%, rgba(6, 182, 212, 0.25), transparent 60%),
+    radial-gradient(ellipse 40% 35% at 20% 80%, rgba(217, 70, 239, 0.18), transparent 60%);
+  pointer-events: none;
+}
+
+/* 噪点叠加层 */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.035;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 渐变文字 */
+.grad-text {
+  background: var(--grad-main);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* 玻璃卡片 */
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+}
+
+/* 渐变描边按钮 */
+.grad-btn {
+  position: relative;
+  border: none;
+  cursor: pointer;
+  color: var(--text-invert);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  background: var(--grad-main);
+  background-size: 200% 200%;
+  background-position: 0% 50%;
+  transition: background-position var(--dur) var(--ease), transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+  box-shadow: 0 8px 24px -8px rgba(124, 58, 237, 0.5);
+}
+.grad-btn:hover:not(:disabled) {
+  background-position: 100% 50%;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -10px rgba(37, 99, 235, 0.6);
+}
+.grad-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.grad-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 次级按钮：渐变描边 */
+.ghost-btn {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid transparent;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)),
+    var(--grad-border);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  color: var(--text-strong);
+  cursor: pointer;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.ghost-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -6px rgba(124, 58, 237, 0.3);
+}
+
+/* 输入控件基础 */
+.field {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 15px;
+  color: var(--text-strong);
+  font-family: inherit;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+  outline: none;
+}
+.field:focus {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 2px var(--c-blue), 0 8px 20px -8px rgba(37, 99, 235, 0.3);
+}
+.field::placeholder {
+  color: var(--text-muted);
+}
+
+textarea.field {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.7;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--c-violet), var(--c-cyan));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 隐藏页面右侧全局滚动条（保留页面可滚动，仅隐藏视觉） */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+html::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* 通用工具类 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--dur) var(--ease);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
