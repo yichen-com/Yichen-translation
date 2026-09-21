@@ -9,9 +9,16 @@
     "dev:server": "npm run dev --prefix server",
     "dev:web": "npm run dev --prefix web",
     "build": "npm run build --prefix web",
-    "start": "npm run start --prefix server"
+    "start": "npm run start --prefix server",
+    "cf:dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:dry": "npm run build && wrangler deploy --dry-run"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "wrangler": "^4.136.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260921.1": true
   }
 }

@@ -1,10 +1,13 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { api } from '../api.js'
 
 const props = defineProps({
   // 后端下发的引擎摘要列表（含凭据字段定义与配置状态）
   providers: { type: Array, default: () => [] },
   initialProvider: { type: String, default: 'uapi' },
+  // 凭据存储模式：kv-session = Cloudflare 版（按会话隔离）；env-file = 本地 Express 版
+  storageMode: { type: String, default: 'env-file' },
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -47,10 +50,9 @@ async function save() {
     for (const f of selected.value.credentialFields) {
       credentials[f.envKey] = form.value[f.envKey].trim()
     }
-    const resp = await fetch(`/api/config/${selected.value.id}`, {
+    const resp = await api(`/api/config/${selected.value.id}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credentials }),
+      body: { credentials },
     })
     const data = await resp.json()
     if (!resp.ok) throw new Error(data?.error || '保存失败')
@@ -71,7 +73,7 @@ async function clearCreds() {
   clearing.value = true
   msg.value = ''
   try {
-    const resp = await fetch(`/api/config/${selected.value.id}`, {
+    const resp = await api(`/api/config/${selected.value.id}`, {
       method: 'DELETE',
     })
     const data = await resp.json()
@@ -94,8 +96,14 @@ async function clearCreds() {
     <div class="modal glass-card">
       <h2 class="modal-title grad-text">翻译引擎设置</h2>
       <p class="modal-desc">
-        选择翻译引擎并配置凭据。凭据保存在后端
-        <code>server/.env</code>，前端全程不接触，保存后立即生效。
+        <template v-if="storageMode === 'kv-session'">
+          选择翻译引擎并填入你自己的凭据。凭据保存在 Cloudflare KV，仅与你当前浏览器的会话绑定，
+          其他访问者不可见，可随时在此清除。
+        </template>
+        <template v-else>
+          选择翻译引擎并配置凭据。凭据保存在后端
+          <code>server/.env</code>，前端全程不接触，保存后立即生效。
+        </template>
       </p>
 
       <!-- 引擎单选卡片 -->

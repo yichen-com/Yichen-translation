@@ -1,5 +1,4 @@
-import crypto from 'crypto'
-import fetch from 'node-fetch'
+import { md5Hex } from './md5.js'
 
 // 百度翻译开放平台 通用文本翻译 API
 // 签名：sign = MD5(appid + q + salt + 密钥)，32 位小写，拼接时 q 不做 URL encode
@@ -33,10 +32,7 @@ export default {
     const appid = creds.BAIDU_APP_ID
     const secret = creds.BAIDU_SECRET_KEY
     const salt = String(Date.now())
-    const sign = crypto
-      .createHash('md5')
-      .update(appid + text + salt + secret, 'utf8')
-      .digest('hex')
+    const sign = md5Hex(appid + text + salt + secret)
 
     const resp = await fetch(BAIDU_ENDPOINT, {
       method: 'POST',

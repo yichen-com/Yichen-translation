@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "yichen-translation",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    // 前端构建产物（npm run build 输出到 server/public）
+    "directory": "server/public",
+    "binding": "ASSETS",
+    // SPA 回退：未命中的路径返回 index.html
+    "not_found_handling": "single-page-application",
+    // API 请求始终先进 Worker，不经资源查找
+    "run_worker_first": ["/api/*"]
+  },
+  // 用户会话凭据存储；部署时省略 id 由 wrangler 自动创建（kv namespace create 亦可手动建）
+  "kv_namespaces": [
+    { "binding": "CREDS_KV" }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

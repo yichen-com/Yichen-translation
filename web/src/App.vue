@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { AUTO_LANG } from './constants/languages.js'
+import { api } from './api.js'
 import GradientSelect from './components/GradientSelect.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import HistoryList from './components/HistoryList.vue'
@@ -24,6 +25,8 @@ const providers = ref([])
 const PROVIDER_KEY = 'yichen_provider'
 const currentProviderId = ref(localStorage.getItem(PROVIDER_KEY) || 'uapi')
 const showSettings = ref(false)
+// 凭据存储模式：kv-session = Cloudflare 版（按会话隔离）；env-file = 本地 Express 版
+const storageMode = ref('env-file')
 
 // 原文/译文滚动容器引用 + 同步锁（避免双向触发死循环）
 const inputScrollRef = ref(null)
@@ -158,9 +161,10 @@ function clearHistory() {
 /* ---------------- 方法 ---------------- */
 async function loadProviders() {
   try {
-    const resp = await fetch('/api/health')
+    const resp = await api('/api/health')
     const data = await resp.json()
     providers.value = data?.providers || []
+    if (data?.storage) storageMode.value = data.storage
     // localStorage 里的引擎已不存在时，优先回退到第一个已配置的引擎
     if (providers.value.length && !providers.value.some((p) => p.id === currentProviderId.value)) {
       const firstConfigured = providers.value.find((p) => p.configured)
@@ -195,15 +199,14 @@ async function handleTranslate() {
 
   loading.value = true
   try {
-    const resp = await fetch('/api/translate', {
+    const resp = await api('/api/translate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body: {
         text: inputText.value,
         to_lang: toLang.value,
         from_lang: fromLang.value,
         provider: currentProviderId.value,
-      }),
+      },
     })
     const data = await resp.json()
     if (!resp.ok) {
@@ -412,7 +415,7 @@ function onSettingsSaved(providerId) {
     <footer class="app-footer">
       <span>多引擎翻译 · Uapi / 百度翻译 / DeepL</span>
       <span class="sep">·</span>
-      <span>本地部署 · 凭据由后端安全保管</span>
+      <span>{{ storageMode === 'kv-session' ? 'Cloudflare Workers · 凭据按会话隔离，仅存于你的浏览器会话' : '本地部署 · 凭据由后端安全保管' }}</span>
     </footer>
 
     <!-- 翻译引擎设置弹窗 -->
@@ -420,6 +423,7 @@ function onSettingsSaved(providerId) {
       v-if="showSettings"
       :providers="providers"
       :initial-provider="currentProviderId"
+      :storage-mode="storageMode"
       @close="showSettings = false"
       @saved="onSettingsSaved"
     />
