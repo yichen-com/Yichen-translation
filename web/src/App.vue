@@ -8,9 +8,11 @@ import HistoryList from './components/HistoryList.vue'
 /* ---------------- 状态 ---------------- */
 const inputText = ref('')
 const resultText = ref('')
-// 源语言：'auto' 为自动检测；目标语言默认英语
-const fromLang = ref('auto')
-const toLang = ref('en')
+// 源语言：'auto' 为自动检测；语言选择持久化，下次打开自动恢复
+const LANG_FROM_KEY = 'yichen_from_lang'
+const LANG_TO_KEY = 'yichen_to_lang'
+const fromLang = ref(localStorage.getItem(LANG_FROM_KEY) || 'auto')
+const toLang = ref(localStorage.getItem(LANG_TO_KEY) || 'en')
 const loading = ref(false)
 const errorMsg = ref('')
 // 非错误类轻提示（如切换引擎后语言自动回退），数秒后自动消失
@@ -101,6 +103,12 @@ onMounted(async () => {
   await loadProviders()
 })
 
+// 语言选择持久化
+watch([fromLang, toLang], ([f, t]) => {
+  localStorage.setItem(LANG_FROM_KEY, f)
+  localStorage.setItem(LANG_TO_KEY, t)
+})
+
 // 切换引擎：持久化选择；当前语言不被新引擎支持时自动回退并轻提示
 watch(currentProviderId, (id) => {
   localStorage.setItem(PROVIDER_KEY, id)
@@ -164,6 +172,7 @@ async function loadProviders() {
 }
 
 async function handleTranslate() {
+  if (loading.value) return
   errorMsg.value = ''
   resultText.value = ''
 
@@ -253,6 +262,13 @@ function clearAll() {
   inputText.value = ''
   resultText.value = ''
   errorMsg.value = ''
+}
+
+// 输入框回车直译；Shift+Enter 换行（交给默认行为）；输入法选词回车不触发
+function onEnterKey(e) {
+  if (e.shiftKey || e.isComposing || e.keyCode === 229) return
+  e.preventDefault()
+  handleTranslate()
 }
 
 function onSettingsSaved(providerId) {
@@ -348,6 +364,7 @@ function onSettingsSaved(providerId) {
             placeholder="在此输入要翻译的文本…"
             :maxlength="charLimit + 500"
             @scroll="onInputScroll"
+            @keydown.enter="onEnterKey"
           ></textarea>
         </div>
 
