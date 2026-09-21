@@ -1,6 +1,5 @@
-import fetch from 'node-fetch'
-
 // UapiPro 翻译接口适配器
+// 使用全局 fetch（Node 18+ 与 Cloudflare Workers 均内置），双端共用
 const UAPI_ENDPOINT = 'https://uapis.cn/api/v1/translate/text'
 
 const LANGS = [

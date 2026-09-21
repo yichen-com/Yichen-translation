@@ -9,6 +9,10 @@ web/dist/
 # 环境变量（含 API Key，切勿提交）
 .env
 server/.env
+.dev.vars
+
+# Wrangler 本地状态
+.wrangler/
 *.local
 
 # 日志

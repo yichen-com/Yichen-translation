@@ -1,5 +1,3 @@
-import fetch from 'node-fetch'
-
 // DeepL 翻译 API
 // Free 版 Auth Key 以 ":fx" 结尾 → api-free.deepl.com；Pro 版 → api.deepl.com
 // DeepL 目标语言仅提供简体中文（ZH），无繁体，语言表相应精简
