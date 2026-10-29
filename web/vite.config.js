@@ -1,15 +1,16 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// 开发环境前端跑在 5173，请求代理到后端 3000
-// 生产环境构建后产物复制到 server/public/ 由后端统一托管
+// 开发环境前端跑在 5173，/functions/v1/app 由本地 Function 适配器（dev/function-local.mjs，:8000）提供
+// 生产环境构建后产物作为站点静态文件，Function 由 Qoder Sites 托管
 export default defineConfig({
   plugins: [vue()],
   server: {
+    host: '127.0.0.1',
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
+      '/functions/v1/app': {
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

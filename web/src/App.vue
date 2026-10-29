@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { requestJson } from './api.js'
 import { AUTO_LANG } from './constants/languages.js'
 import GradientSelect from './components/GradientSelect.vue'
 import SettingsModal from './components/SettingsModal.vue'
@@ -158,9 +159,8 @@ function clearHistory() {
 /* ---------------- 方法 ---------------- */
 async function loadProviders() {
   try {
-    const resp = await fetch('/api/health')
-    const data = await resp.json()
-    providers.value = data?.providers || []
+    const data = await requestJson('/functions/v1/app/health')
+    providers.value = Array.isArray(data?.providers) ? data.providers : []
     // localStorage 里的引擎已不存在时，优先回退到第一个已配置的引擎
     if (providers.value.length && !providers.value.some((p) => p.id === currentProviderId.value)) {
       const firstConfigured = providers.value.find((p) => p.configured)
@@ -195,9 +195,8 @@ async function handleTranslate() {
 
   loading.value = true
   try {
-    const resp = await fetch('/api/translate', {
+    const data = await requestJson('/functions/v1/app/translate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: inputText.value,
         to_lang: toLang.value,
@@ -205,14 +204,7 @@ async function handleTranslate() {
         provider: currentProviderId.value,
       }),
     })
-    const data = await resp.json()
-    if (!resp.ok) {
-      if (resp.status === 401 || resp.status === 403) {
-        throw new Error('凭据无效或无权限，请检查当前引擎的凭据配置（' + (data?.error || '') + '）')
-      }
-      throw new Error(data?.error || '翻译失败（HTTP ' + resp.status + '）')
-    }
-    resultText.value = data.translate || ''
+    resultText.value = typeof data.translate === 'string' ? data.translate : ''
 
     // 写入历史记录（记录所用的引擎）
     if (resultText.value) {
@@ -271,10 +263,15 @@ function onEnterKey(e) {
   handleTranslate()
 }
 
-function onSettingsSaved(providerId) {
-  // 保存即切换到刚配置的引擎
-  if (providerId) currentProviderId.value = providerId
+function openSettings() {
+  showSettings.value = true
+  // 密钥在站点设置中维护，打开弹窗时刷新一次引擎状态
   loadProviders()
+}
+
+function onSelectProvider(providerId) {
+  if (providerId) currentProviderId.value = providerId
+  showSettings.value = false
 }
 </script>
 
@@ -290,7 +287,7 @@ function onSettingsSaved(providerId) {
         </div>
       </div>
 
-      <button class="ghost-btn key-btn" @click="showSettings = true">
+      <button class="ghost-btn key-btn" @click="openSettings">
         <span class="dot" :class="{ ok: currentProvider?.configured }"></span>
         {{
           currentProvider
@@ -412,7 +409,7 @@ function onSettingsSaved(providerId) {
     <footer class="app-footer">
       <span>多引擎翻译 · Uapi / 百度翻译 / DeepL</span>
       <span class="sep">·</span>
-      <span>本地部署 · 凭据由后端安全保管</span>
+      <span>密钥由站点服务端保管 · 前端不接触</span>
     </footer>
 
     <!-- 翻译引擎设置弹窗 -->
@@ -421,7 +418,7 @@ function onSettingsSaved(providerId) {
       :providers="providers"
       :initial-provider="currentProviderId"
       @close="showSettings = false"
-      @saved="onSettingsSaved"
+      @select="onSelectProvider"
     />
   </div>
 </template>
